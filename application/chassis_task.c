@@ -503,11 +503,18 @@ static void chassis_set_contorl(chassis_move_t *chassis_move_control)
     }
     else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_NO_FOLLOW_YAW)
     {
+				// make sure vertial direction follow gimbal 
+				fp32 sin_yaw = 0.0f, cos_yaw = 0.0f;
+        //rotate chassis direction, make sure vertial direction follow gimbal 
+        //旋转控制底盘速度方向，保证前进方向是云台方向，有利于运动平稳
+        sin_yaw = arm_sin_f32(-chassis_move_control->chassis_yaw_motor->relative_angle);
+        cos_yaw = arm_cos_f32(-chassis_move_control->chassis_yaw_motor->relative_angle);
+			
+        chassis_move_control->vx_set = cos_yaw * vx_set + sin_yaw * vy_set;
+        chassis_move_control->vy_set = -sin_yaw * vx_set + cos_yaw * vy_set;
         //"angle_set" is rotation speed set-point
         //“angle_set” 是旋转速度控制
         chassis_move_control->wz_set = angle_set;
-        chassis_move_control->vx_set = fp32_constrain(vx_set, chassis_move_control->vx_min_speed, chassis_move_control->vx_max_speed);
-        chassis_move_control->vy_set = fp32_constrain(vy_set, chassis_move_control->vy_min_speed, chassis_move_control->vy_max_speed);
     }
     else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_RAW)
     {
