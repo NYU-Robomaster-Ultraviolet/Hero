@@ -298,6 +298,6 @@ void sbus_to_usart1(uint8_t *sbus)
     {
         usart_tx_buf[19] += usart_tx_buf[i];
     }
-    usart1_tx_dma_enable(usart_tx_buf, 20);
+    // usart1_tx_dma_enable(usart_tx_buf, 20);  // TODO uncomment before
 }
 
