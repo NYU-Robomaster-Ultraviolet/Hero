@@ -19,7 +19,7 @@ void usart1_init(uint8_t *rx1_buf, uint8_t *rx2_buf, uint16_t dma_buf_num)
     // enalbe idle interrupt
     //使能空闲中断
     __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
-
+    // __HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE); // receive interrupt
 
     // disable DMA rx
     //失效DMA
