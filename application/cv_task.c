@@ -28,7 +28,7 @@ void cv_process(void);
 
 extern UART_HandleTypeDef huart1;
 
-#define USART1_RX_BUFFER_SIZE 2
+#define USART1_RX_BUFFER_SIZE 10
 uint8_t usart1_buf[2][USART1_RX_BUFFER_SIZE];
 uint8_t *usart1_data; // newest data
 uint8_t tempText[] = {'0'};
@@ -65,25 +65,32 @@ void USART1_IRQHandler(void)
     {
         __HAL_UART_CLEAR_PEFLAG(&huart1);
 
-        if ((huart1.hdmarx->Instance->CR & DMA_SxCR_CT) != RESET)
+        static uint16_t this_time_rx_len = 0;
+
+        if ((huart1.hdmarx->Instance->CR & DMA_SxCR_CT) == RESET)
         {
             __HAL_DMA_DISABLE(huart1.hdmarx);
+            this_time_rx_len = USART1_RX_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart1.hdmarx);
             __HAL_DMA_SET_COUNTER(huart1.hdmarx, USART1_RX_BUFFER_SIZE);
             huart1.hdmarx->Instance->CR |= DMA_SxCR_CT;
             __HAL_DMA_ENABLE(huart1.hdmarx);
             usart1_data = usart1_buf[0];
-            usart1_tx_dma_enable(tempText1, 1);  // TODO
+            usart1_tx_dma_enable(tempText1, 1); // TODO
         }
         else
         {
             __HAL_DMA_DISABLE(huart1.hdmarx);
+            this_time_rx_len = USART1_RX_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart1.hdmarx);
             __HAL_DMA_SET_COUNTER(huart1.hdmarx, USART1_RX_BUFFER_SIZE);
             huart1.hdmarx->Instance->CR &= ~(DMA_SxCR_CT);
             __HAL_DMA_ENABLE(huart1.hdmarx);
             usart1_data = usart1_buf[1];
             usart1_tx_dma_enable(tempText2, 1); // TODO
         }
+        if (this_time_rx_len < USART1_RX_BUFFER_SIZE)
+        {
 
-        usart1_tx_dma_enable(usart1_data, USART1_RX_BUFFER_SIZE);  // TODO
+            usart1_tx_dma_enable(usart1_data, this_time_rx_len); // TODO
+        }
     }
 }
