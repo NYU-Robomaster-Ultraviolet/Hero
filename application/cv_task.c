@@ -19,6 +19,8 @@
 #include "CRC8_CRC16.h" // TODO: delete
 #include "fifo.h"       // TODO: delete
 #include "protocol.h"   // TODO
+#include "gimbal_task.h"
+#include "remote_control.h"
 
 /**
  * @brief
@@ -28,9 +30,16 @@ void cv_process(void);
 
 extern UART_HandleTypeDef huart1;
 
-#define USART1_RX_BUFFER_SIZE 10
+#define USART1_RX_BUFFER_SIZE 20
 uint8_t usart1_buf[2][USART1_RX_BUFFER_SIZE];
 uint8_t *usart1_data; // newest data pointer
+
+#define FLOAT_LEN = 3 // yaw_add, pitch_add, shoot in fp32
+fp32 *cv_float_data;
+
+gimbal_control_t *cv_task_gimbal;
+
+void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add);
 
 /**
  * @brief
@@ -42,17 +51,68 @@ void cv_usart_task(void const *argument)
     // usart init
     usart1_init(usart1_buf[0], usart1_buf[1], USART1_RX_BUFFER_SIZE);
 
+    // getting the gimbal_control_t struct
+    cv_task_gimbal = get_gimbal_control_point();
+
+    // clear cv data for both buffer
+    cv_float_data = (fp32 *)usart1_buf[0];
+    cv_float_data[0] = 0;
+    cv_float_data[1] = 0;
+    cv_float_data[2] = 0;
+    cv_float_data = (fp32 *)usart1_buf[1];
+    cv_float_data[0] = 0;
+    cv_float_data[1] = 0;
+    cv_float_data[2] = 0;
+
     while (1)
     {
-        cv_process();
+        // switch in middle is the cv mode
+        if (switch_is_mid(cv_task_gimbal->gimbal_rc_ctrl->rc.s[GIMBAL_MODE_CHANNEL]))
+        {
+            cv_process();
+        }
         osDelay(100); // 1/100ms = 10Hz processing rate
     }
 }
 
 void cv_process(void)
 {
-    // process data (TODO in future)
-    // send processed data
+    // no gimbal value available yet TODO: could be error
+    if (cv_task_gimbal == NULL)
+    {
+        return;
+    }
+
+    // pointing to newest data
+    cv_float_data = (fp32 *)usart1_data;
+
+    // parse data
+    fp32 yaw_add = cv_float_data[0];
+    fp32 pitch_add = cv_float_data[1];
+    fp32 shooting = cv_float_data[2]; // 0 for not shoot and 1 for shoot
+    // clear out data
+    cv_float_data[0] = 0;
+    cv_float_data[1] = 0;
+    cv_float_data[2] = 0;
+
+    // set angle
+    gimbal_set_angle(&(cv_task_gimbal->gimbal_yaw_motor), yaw_add);
+    gimbal_set_angle(&(cv_task_gimbal->gimbal_pitch_motor), pitch_add);
+}
+
+void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add)
+{
+    gimbal_motor->relative_angle_set = gimbal_motor->relative_angle + add;
+
+    // check whether the limit is exceed
+    if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
+    {
+        gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+    }
+    else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
+    {
+        gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
+    }
 }
 
 void USART1_IRQHandler(void)
