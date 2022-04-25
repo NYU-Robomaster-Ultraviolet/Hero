@@ -1,5 +1,6 @@
 #include "bsp_usart.h"
 #include "main.h"
+#include <stdarg.h>
 
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_tx;
@@ -82,6 +83,20 @@ void usart1_tx_dma_enable(uint8_t *data, uint16_t len)
     __HAL_DMA_SET_COUNTER(&hdma_usart1_tx, len);
 
     __HAL_DMA_ENABLE(&hdma_usart1_tx);
+}
+
+
+void usart_printf(const char *fmt,...)
+{
+    static uint8_t tx_buf[256] = {0};
+    static va_list ap;
+    static uint16_t len;
+    va_start(ap, fmt);
+    //return length of string 
+    //·µ»Ø×Ö·û´®³¤¶È
+    len = vsprintf((char *)tx_buf, fmt, ap);
+    va_end(ap);
+    usart1_tx_dma_enable(tx_buf, len);
 }
 
 
