@@ -30,6 +30,7 @@
 #include "gimbal_behaviour.h"
 #include "detect_task.h"
 #include "pid.h"
+#include "cv_task.h"
 
 #define shoot_fric1_on(pwm) fric1_on((pwm)) //Ä¦²ÁÂÖ1pwmºê¶¨Òå
 #define shoot_fric2_on(pwm) fric2_on((pwm)) //Ä¦²ÁÂÖ2pwmºê¶¨Òå
@@ -236,7 +237,15 @@ static void shoot_set_mode(void)
     {
         shoot_control.shoot_mode = SHOOT_READY;
     }
+		else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && uart_shooting)
+    {
+        shoot_control.shoot_mode = SHOOT_READY;
+    }
     else if(shoot_control.shoot_mode == SHOOT_READY && shoot_control.key == SWITCH_TRIGGER_OFF)
+    {
+        shoot_control.shoot_mode = SHOOT_READY_BULLET;
+    }
+		else if(shoot_control.shoot_mode == SHOOT_READY && !uart_shooting)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }

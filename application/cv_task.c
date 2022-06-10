@@ -21,6 +21,7 @@
 #include "protocol.h"   // TODO
 #include "gimbal_task.h"
 #include "remote_control.h"
+#include "shoot.h"
 
 /**
  * @brief
@@ -89,7 +90,8 @@ void cv_process(void)
     // parse data
     fp32 yaw_add = cv_float_data[0];
     fp32 pitch_add = cv_float_data[1];
-    fp32 shooting = cv_float_data[2]; // 0 for not shoot and 1 for shoot
+    //fp32 shooting = cv_float_data[2]; // 0 for not shoot and 1 for shoot
+		uart_shooting = cv_float_data[2];
     // clear out data
     cv_float_data[0] = 0;
     cv_float_data[1] = 0;
@@ -99,20 +101,70 @@ void cv_process(void)
     gimbal_set_angle(&(cv_task_gimbal->gimbal_yaw_motor), yaw_add);
     gimbal_set_angle(&(cv_task_gimbal->gimbal_pitch_motor), pitch_add);
 }
-
-void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add)
+// This function moves the gimbal based on the value given from UART
+static void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add)
 {
-    gimbal_motor->relative_angle_set = gimbal_motor->relative_angle + add;
-
-    // check whether the limit is exceed
-    if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
+	  if (gimbal_motor == NULL)
     {
-        gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+        return;
     }
-    else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
-    {
-        gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
-    }
+		if(add > 0.0f){
+		while(1){
+			if(add < .01f){
+				gimbal_motor->relative_angle_set += add;
+				add = 0.0f;
+				return;
+			}
+			else if( add < .03f){
+				gimbal_motor->relative_angle_set += 0.01f;
+				add -= 0.01f;
+			}
+			else{
+				gimbal_motor->relative_angle_set += 0.03f;
+				add -= 0.03f;
+			}
+			// check whether the limit is exceed
+			if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
+			{
+					gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+				  return;
+			}
+			else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
+			{
+					gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
+				  return;
+			}
+			osDelay(100);
+	  }
+	}else if(add < 0.0f){
+		while(1){
+			if(add < -.01f){
+				gimbal_motor->relative_angle_set += add;
+				add = 0.0f;
+				return;
+			}
+			else if( add < -.03f){
+				gimbal_motor->relative_angle_set -= 0.01f;
+				add += 0.015f;
+			}
+			else{
+				gimbal_motor->relative_angle_set -= 0.03f;
+				add += 0.03f;
+			}
+			// check whether the limit is exceed
+			if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
+			{
+					gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+				  return;
+			}
+			else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
+			{
+					gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
+				  return;
+			}
+			osDelay(100);
+	  }
+	}
 }
 
 void USART1_IRQHandler(void)

@@ -15,4 +15,13 @@
 
 extern void cv_usart_task(void const *argument); // todo
 
+uint16_t uart_shooting = 0;
+
+typedef struct
+{
+	float uart_yaw_add;
+	float uart_pitch_add;
+	uint16_t uart_shooting;
+}uart_instruction_t;
+
 #endif

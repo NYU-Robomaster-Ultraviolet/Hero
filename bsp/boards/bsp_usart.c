@@ -1,6 +1,7 @@
 #include "bsp_usart.h"
 #include "main.h"
 #include <stdarg.h>
+#include <stdio.h>
 
 extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart1_tx;
