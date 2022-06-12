@@ -41,6 +41,8 @@
 //微动开关IO
 #define BUTTEN_TRIG_PIN HAL_GPIO_ReadPin(BUTTON_TRIG_GPIO_Port, BUTTON_TRIG_Pin)
 
+uart_shoot_mode_e uart_shooting_mode;
+
 
 
 
@@ -81,6 +83,9 @@ shoot_control_t shoot_control;          //射击数据
   * @param[in]      void
   * @retval         返回空
   */
+	
+static void get_uart_mode(fp32 uart_info);
+
 void shoot_init(void)
 {
 
@@ -237,18 +242,18 @@ static void shoot_set_mode(void)
     {
         shoot_control.shoot_mode = SHOOT_READY;
     }
-		else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && uart_shooting)
-    {
-        shoot_control.shoot_mode = SHOOT_READY;
-    }
+		//else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && uart_shooting_mode == SHOOT_START )
+    //{
+    //    shoot_control.shoot_mode = SHOOT_READY;
+    //}
     else if(shoot_control.shoot_mode == SHOOT_READY && shoot_control.key == SWITCH_TRIGGER_OFF)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }
-		else if(shoot_control.shoot_mode == SHOOT_READY && !uart_shooting)
-    {
-        shoot_control.shoot_mode = SHOOT_READY_BULLET;
-    }
+		//else if(shoot_control.shoot_mode == SHOOT_READY && uart_shooting_mode == SHOOT_PAUSE)
+    //{
+    //    shoot_control.shoot_mode = SHOOT_READY_BULLET;
+    //}
     else if(shoot_control.shoot_mode == SHOOT_READY)
     {
         //下拨一次或者鼠标按下一次，进入射击状态
@@ -473,4 +478,11 @@ static void shoot_bullet_control(void)
         shoot_control.move_flag = 0;
     }
 }
-
+static void get_uart_mode(fp32 uart_info){
+	if(uart_info == 0){
+		uart_shooting_mode = SHOOT_PAUSE;
+	}
+	else{
+		uart_shooting_mode = SHOOT_START;
+	}
+}

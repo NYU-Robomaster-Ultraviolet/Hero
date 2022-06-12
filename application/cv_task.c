@@ -40,6 +40,7 @@ fp32 *cv_float_data;
 
 gimbal_control_t *cv_task_gimbal;
 
+
 void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add);
 
 /**
@@ -91,7 +92,7 @@ void cv_process(void)
     fp32 yaw_add = cv_float_data[0];
     fp32 pitch_add = cv_float_data[1];
     //fp32 shooting = cv_float_data[2]; // 0 for not shoot and 1 for shoot
-		uart_shooting = cv_float_data[2];
+		//get_uart_mode(cv_float_data[2]);
     // clear out data
     cv_float_data[0] = 0;
     cv_float_data[1] = 0;
