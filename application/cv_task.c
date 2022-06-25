@@ -31,6 +31,8 @@ void cv_process(void);
 
 extern UART_HandleTypeDef huart1;
 
+uart_stability *uart_shooting_status; //uart shooting structure
+
 #define USART1_RX_BUFFER_SIZE 20
 uint8_t usart1_buf[2][USART1_RX_BUFFER_SIZE];
 uint8_t *usart1_data; // newest data pointer
@@ -38,8 +40,7 @@ uint8_t *usart1_data; // newest data pointer
 #define FLOAT_LEN = 3 // yaw_add, pitch_add, shoot in fp32
 fp32 *cv_float_data;
 
-gimbal_control_t *cv_task_gimbal;
-
+gimbal_control_t *cv_task_gimbal; //address to gimbal details
 
 void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add);
 
@@ -52,7 +53,11 @@ void cv_usart_task(void const *argument)
 {
     // usart init
     usart1_init(usart1_buf[0], usart1_buf[1], USART1_RX_BUFFER_SIZE);
-
+	
+		//initialize uart shooting detection
+		uart_shooting_status->stability = 0;
+		uart_shooting_status->detected_enemy = SHOOT_PAUSE;
+		uart_shooting_status->uart_reading = NO_DETECTION;
     // getting the gimbal_control_t struct
     cv_task_gimbal = get_gimbal_control_point();
 
@@ -72,6 +77,12 @@ void cv_usart_task(void const *argument)
         if (switch_is_mid(cv_task_gimbal->gimbal_rc_ctrl->rc.s[GIMBAL_MODE_CHANNEL]))
         {
             cv_process();
+						if(uart_shooting_status->stability > 4){
+								uart_shooting_status->detected_enemy = SHOOT_START;
+						}
+						else{
+								uart_shooting_status->detected_enemy = SHOOT_PAUSE;
+						}
         }
         osDelay(100); // 1/100ms = 10Hz processing rate
     }
@@ -91,80 +102,87 @@ void cv_process(void)
     // parse data
     fp32 yaw_add = cv_float_data[0];
     fp32 pitch_add = cv_float_data[1];
-    //fp32 shooting = cv_float_data[2]; // 0 for not shoot and 1 for shoot
-		//get_uart_mode(cv_float_data[2]);
     // clear out data
-    cv_float_data[0] = 0;
+    cv_float_data[0] = -2;
     cv_float_data[1] = 0;
     cv_float_data[2] = 0;
 
-    // set angle
-    gimbal_set_angle(&(cv_task_gimbal->gimbal_yaw_motor), yaw_add);
-    gimbal_set_angle(&(cv_task_gimbal->gimbal_pitch_motor), pitch_add);
+		if(yaw_add != -2){ //confirm that there was a reading
+				uart_shooting_status->uart_reading = DETECTED;
+			  // set angle
+				gimbal_set_angle(&(cv_task_gimbal->gimbal_yaw_motor), yaw_add);
+				gimbal_set_angle(&(cv_task_gimbal->gimbal_pitch_motor), pitch_add);
+		}
+		else{
+				uart_shooting_status->uart_reading = NO_DETECTION;
+		}
 }
 // This function moves the gimbal based on the value given from UART
 static void gimbal_set_angle(gimbal_motor_t *gimbal_motor, fp32 add)
-{
-	  if (gimbal_motor == NULL)
-    {
-        return;
-    }
-		if(add > 0.0f){
-		while(1){
-			if(add < .01f){
-				gimbal_motor->relative_angle_set += add;
-				add = 0.0f;
-				return;
+{	
+		if( add < 0.002f && add > -0.002f && add != 0){ //Interval that determines stable aiming
+				if(uart_shooting_status->stability < 10){
+						uart_shooting_status->stability += 1; //Increase stability reading if in range
+				}
+		}
+		else{ //decrease stability if not in range
+				if(uart_shooting_status->stability < 4){
+						uart_shooting_status->stability = 0; 
+				}
+				else{
+						uart_shooting_status->stability -= 2;
+				}
+		}
+		if(add > 0.002f){ //minimum add value
+				while(1){
+						if(add < .01f){
+								gimbal_motor->relative_angle_set += add;
+								add = 0.0f;
+						}
+						else if( add < .03f){ //slows down motor near end
+								gimbal_motor->relative_angle_set += 0.01f;
+								add -= 0.01f;
+						}
+						else{
+								gimbal_motor->relative_angle_set += 0.03f;
+								add -= 0.03f;
+						}
+						// check whether the limit is exceed
+						if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle){
+								gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+								return;
+						}
+						else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle){
+								gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
+								return;
+						}
+						osDelay(100);
+				}
+	}else if(add < -0.002f){
+			while(1){
+					if(add < -.01f){
+					gimbal_motor->relative_angle_set += add;
+					add = 0.0f;
+					}
+					else if( add < -.03f){
+							gimbal_motor->relative_angle_set -= 0.01f;
+							add += 0.015f;
+					}
+					else{
+							gimbal_motor->relative_angle_set -= 0.03f;
+							add += 0.03f;
+					}
+					// check whether the limit is exceed
+					if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle){
+							gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
+							return;
+					}
+					else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle){
+							gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
+							return;
+					}
+					osDelay(100);
 			}
-			else if( add < .03f){
-				gimbal_motor->relative_angle_set += 0.01f;
-				add -= 0.01f;
-			}
-			else{
-				gimbal_motor->relative_angle_set += 0.03f;
-				add -= 0.03f;
-			}
-			// check whether the limit is exceed
-			if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
-			{
-					gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
-				  return;
-			}
-			else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
-			{
-					gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
-				  return;
-			}
-			osDelay(100);
-	  }
-	}else if(add < 0.0f){
-		while(1){
-			if(add < -.01f){
-				gimbal_motor->relative_angle_set += add;
-				add = 0.0f;
-				return;
-			}
-			else if( add < -.03f){
-				gimbal_motor->relative_angle_set -= 0.01f;
-				add += 0.015f;
-			}
-			else{
-				gimbal_motor->relative_angle_set -= 0.03f;
-				add += 0.03f;
-			}
-			// check whether the limit is exceed
-			if (gimbal_motor->relative_angle_set > gimbal_motor->max_relative_angle)
-			{
-					gimbal_motor->relative_angle_set = gimbal_motor->max_relative_angle;
-				  return;
-			}
-			else if (gimbal_motor->relative_angle_set < gimbal_motor->min_relative_angle)
-			{
-					gimbal_motor->relative_angle_set = gimbal_motor->min_relative_angle;
-				  return;
-			}
-			osDelay(100);
-	  }
 	}
 }
 

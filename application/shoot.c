@@ -41,9 +41,7 @@
 //微动开关IO
 #define BUTTEN_TRIG_PIN HAL_GPIO_ReadPin(BUTTON_TRIG_GPIO_Port, BUTTON_TRIG_Pin)
 
-uart_shoot_mode_e uart_shooting_mode;
-
-
+extern uart_stability *uart_shooting_status;
 
 
 /**
@@ -84,7 +82,6 @@ shoot_control_t shoot_control;          //射击数据
   * @retval         返回空
   */
 	
-static void get_uart_mode(fp32 uart_info);
 
 void shoot_init(void)
 {
@@ -223,13 +220,13 @@ static void shoot_set_mode(void)
         shoot_control.shoot_mode = SHOOT_STOP;
     }
 
-    //处于中档， 可以使用键盘开启摩擦轮
-    if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_control.shoot_mode == SHOOT_STOP)
+    //处于中档， 可以使用键盘开启摩擦轮 switch is 
+    if ((switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_control.shoot_mode == SHOOT_STOP)|| (uart_shooting_status->uart_reading == DETECTED && shoot_control.shoot_mode == SHOOT_STOP))
     {
         shoot_control.shoot_mode = SHOOT_READY_FRIC;
     }
-    //处于中档， 可以使用键盘关闭摩擦轮
-    else if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_control.shoot_mode != SHOOT_STOP)
+    //处于中档， 可以使用键盘关闭摩擦轮 switch is mid or no uart detection
+    else if ((switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_control.shoot_mode != SHOOT_STOP)) //|| (uart_shooting_status->uart_reading == NO_DETECTION))
     {
         shoot_control.shoot_mode = SHOOT_STOP;
     }
@@ -238,22 +235,18 @@ static void shoot_set_mode(void)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }
-    else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && shoot_control.key == SWITCH_TRIGGER_ON)
+    else if(shoot_control.shoot_mode == SHOOT_READY_BULLET)
     {
-        shoot_control.shoot_mode = SHOOT_READY;
+				if(shoot_control.key == SWITCH_TRIGGER_ON ){ //|| || uart_shooting_status->detected_enemy == SHOOT_START){
+					shoot_control.shoot_mode = SHOOT_READY;
+				}
     }
-		//else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && uart_shooting_mode == SHOOT_START )
-    //{
-    //    shoot_control.shoot_mode = SHOOT_READY;
-    //}
     else if(shoot_control.shoot_mode == SHOOT_READY && shoot_control.key == SWITCH_TRIGGER_OFF)
-    {
-        shoot_control.shoot_mode = SHOOT_READY_BULLET;
+    {		
+				if(shoot_control.key == SWITCH_TRIGGER_OFF){ //|| uart_shooting_status->detected_enemy == SHOOT_PAUSE){
+						shoot_control.shoot_mode = SHOOT_READY_BULLET;
+				}
     }
-		//else if(shoot_control.shoot_mode == SHOOT_READY && uart_shooting_mode == SHOOT_PAUSE)
-    //{
-    //    shoot_control.shoot_mode = SHOOT_READY_BULLET;
-    //}
     else if(shoot_control.shoot_mode == SHOOT_READY)
     {
         //下拨一次或者鼠标按下一次，进入射击状态
@@ -477,12 +470,4 @@ static void shoot_bullet_control(void)
     {
         shoot_control.move_flag = 0;
     }
-}
-static void get_uart_mode(fp32 uart_info){
-	if(uart_info == 0){
-		uart_shooting_mode = SHOOT_PAUSE;
-	}
-	else{
-		uart_shooting_mode = SHOOT_START;
-	}
 }

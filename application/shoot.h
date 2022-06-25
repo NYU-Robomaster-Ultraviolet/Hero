@@ -134,10 +134,6 @@ typedef struct
     uint16_t heat;
 } shoot_control_t;
 
-typedef enum
-{ SHOOT_PAUSE = 0,
-	SHOOT_START = 1,
-} uart_shoot_mode_e;
 
 //由于射击和云台使用同一个can的id故也射击任务在云台任务中执行
 extern void shoot_init(void);

@@ -15,4 +15,23 @@
 
 extern void cv_usart_task(void const *argument); // todo
 
+typedef enum
+{ 
+	SHOOT_PAUSE = 0,
+	SHOOT_START = 1
+} uart_shoot_mode_e;
+
+typedef enum
+{
+	NO_DETECTION = 0,
+	DETECTED = 1
+}uart_detected;
+
+typedef struct
+{
+	uint16_t stability;
+	uart_shoot_mode_e detected_enemy;
+	uart_detected uart_reading;
+} uart_stability;
+
 #endif
